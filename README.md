@@ -149,7 +149,8 @@ PDF report export
 
 👨‍🎓 Author
 
-Name: Om Derle
+Name: Sahil Namdev Jadhav
+
 
 Department: Artificial Intelligence & Data Science
 
