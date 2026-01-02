@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Quiz – Node.js & Groq</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(135deg, #667eea, #764ba2); padding: 20px; }
+    .container { max-width: 900px; margin: auto; background: #ffffff; padding: 30px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3); }
+    header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+    #timer { background: #ef4444; color: white; padding: 8px 16px; border-radius: 30px; font-weight: 600; }
+    .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+    input, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; margin-top: 6px; }
+    .buttons { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+    button { padding: 12px 18px; border-radius: 10px; border: none; cursor: pointer; font-size: 15px; font-weight: 500; transition: 0.2s; }
+    .generate { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+    .submit { background: #10b981; color: white; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .question { background: #f9fafb; padding: 20px; border-radius: 12px; margin-bottom: 20px; border-left: 5px solid #667eea; }
+    .option { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; cursor: pointer; }
+    #loading { display: none; text-align: center; font-weight: 600; color: #764ba2; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h2>Welcome, <span id="studentName">Student</span> 👋</h2>
+      <div id="timer">Time Left: 10:00</div>
+    </header>
+
+    <div class="controls">
+      <div>
+        <label>Topic</label>
+        <input id="topic" value="Node.js" placeholder="e.g. React, Python, History">
+      </div>
+      <div>
+        <label>Difficulty Level</label>
+        <select id="level">
+          <option value="beginner">Beginner</option>
+          <option value="intermediate" selected>Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button id="genBtn" class="generate" onclick="generateQuiz()">Generate AI Quiz</button>
+      <button class="submit" onclick="submitQuiz()">Submit Quiz</button>
+    </div>
+
+    <div id="loading">✨ Groq AI is crafting your questions...</div>
+    <hr>
+    <div id="quiz"></div>
+  </div>
+
+  <script>
+    let quizData = [];
+    let answers = {};
+    let timeLeft = 600;
+    let timerInterval;
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const min = Math.floor(timeLeft / 60);
+        const sec = timeLeft % 60;
+        document.getElementById("timer").innerText = `Time Left: ${min}:${sec < 10 ? "0" : ""}${sec}`;
+        if (timeLeft <= 0) { clearInterval(timerInterval); submitQuiz(); }
+        timeLeft--;
+      }, 1000);
+    }
+
+    async function generateQuiz() {
+      const topic = document.getElementById("topic").value.trim();
+      const level = document.getElementById("level").value;
+      const quizDiv = document.getElementById("quiz");
+      const loading = document.getElementById("loading");
+      const genBtn = document.getElementById("genBtn");
+
+      if (!topic) return alert("Please enter a topic");
+
+      // UI State
+      quizDiv.innerHTML = "";
+      loading.style.display = "block";
+      genBtn.disabled = true;
+
+      try {
+        const response = await fetch("http://localhost:5000/quiz/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic, level })
+        });
+
+        const data = await response.json();
+        quizData = data.quiz;
+        answers = {};
+
+        loading.style.display = "none";
+        genBtn.disabled = false;
+        startTimer();
+
+        quizData.forEach((q, index) => {
+          const qBox = document.createElement("div");
+          qBox.className = "question";
+          qBox.innerHTML = `<b>${index + 1}. ${q.question}</b>`;
+          
+          Object.entries(q.options).forEach(([key, val]) => {
+            qBox.innerHTML += `
+              <label class="option">
+                <input type="radio" name="q${index}" value="${key}" onclick="answers[${index}]='${key}'">
+                <span>${key}. ${val}</span>
+              </label>`;
+          });
+          quizDiv.appendChild(qBox);
+        });
+      } catch (error) {
+        loading.style.display = "none";
+        genBtn.disabled = false;
+        alert("Error connecting to Backend. Ensure server.js is running.");
+      }
+    }
+
+    function submitQuiz() {
+      clearInterval(timerInterval);
+      let score = 0;
+      quizData.forEach((q, i) => { if (answers[i] === q.correct) score++; });
+
+      localStorage.setItem("score", score);
+      localStorage.setItem("total", quizData.length);
+      // Redirect to your result page
+      alert(`Quiz Finished! Score: ${score}/${quizData.length}`);
+      // window.location.href = "result.html"; 
+    }
+  </script>
+</body>
+</html>
